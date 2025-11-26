@@ -2,24 +2,21 @@ from django.contrib.auth.backends import BaseBackend
 from django.contrib.auth.hashers import check_password
 from .models import Usuario
 
-class RutUsuuaBackend(BaseBackend):
-    def authenticate(self, request, username=None, password=None, **kwargs):
+class RutUsuuaBackend:
+    _auth_message_shown = False  # Variable de clase para controlar los mensajes
+
+    def authenticate(self, request, username=None, password=None):
         try:
-            print(f"RutUsuuaBackend: Buscando usuario con RutUsuua: {username}")
+            if not RutUsuuaBackend._auth_message_shown:
+                print("RutUsuuaBackend: Buscando usuario con RutUsuua:", username)
             user = Usuario.objects.get(RutUsuua=username)
-            
             if user.check_password(password):
-                print("RutUsuuaBackend: Contraseña correcta")
+                if not RutUsuuaBackend._auth_message_shown:
+                    print("RutUsuuaBackend: Contraseña correcta")
+                    RutUsuuaBackend._auth_message_shown = True
                 return user
-            else:
-                print("RutUsuuaBackend: Contraseña incorrecta")
-                return None
-                
-        except Usuario.DoesNotExist:
-            print("RutUsuuaBackend: Usuario no encontrado")
             return None
-        except Exception as e:
-            print(f"RutUsuuaBackend: Error inesperado: {str(e)}")
+        except Usuario.DoesNotExist:
             return None
 
     def get_user(self, user_id):

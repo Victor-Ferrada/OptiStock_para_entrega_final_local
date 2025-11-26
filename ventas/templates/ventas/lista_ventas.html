@@ -52,4 +52,16 @@
         </div>
     </div>
 </section>
+
+{% if mostrar_mensaje %}
+<script>
+    Swal.fire({
+        title: '¡Éxito!',
+        text: 'Venta registrada con éxito',
+        icon: 'success',
+        confirmButtonText: 'OK',
+        timer: 3000
+    });
+</script>
+{% endif %}
 {% endblock %}

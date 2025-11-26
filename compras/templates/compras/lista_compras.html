@@ -1,0 +1,64 @@
+{% extends "inventario/base.html" %}
+
+{% block title %}Lista de Compras{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-4 text-primary">
+                <i class="zmdi zmdi-assignment me-2"></i>Lista de Compras
+            </h2>
+        </div>
+    </div>
+
+    <div class="mdl-grid">
+        <div class="mdl-cell mdl-cell--12-col">
+            <div class="table-responsive">
+                <table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp full-width">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Fecha</th>
+                            <th>Proveedor</th>
+                            <th>Total</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for compra in compras %}
+                        <tr>
+                            <td>{{ compra.id_compra }}</td>
+                            <td>{{ compra.fecha }}</td>
+                            <td>{{ compra.proveedor }}</td>
+                            <td>${{ compra.total|floatformat:2 }}</td>
+                            <td>
+                                <a href="{% url 'compras:detalle_compra' compra.id_compra %}" class="mdl-button mdl-button--icon mdl-js-button mdl-js-ripple-effect">
+                                    <i class="zmdi zmdi-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center">No hay compras registradas</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if mostrar_mensaje %}
+<script>
+    Swal.fire({
+        title: '¡Éxito!',
+        text: 'Compra registrada con éxito',
+        icon: 'success',
+        confirmButtonText: 'OK',
+        timer: 3000
+    });
+</script>
+{% endif %}
+{% endblock %} 

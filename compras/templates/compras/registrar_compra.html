@@ -1,0 +1,152 @@
+{% extends "inventario/base.html" %}
+
+{% block title %}Registrar Compra{% endblock %}
+
+{% block content %}
+<style>
+    /* Estilo para todos los campos del formulario */
+    input, select, textarea {
+        border: 2px solid #49505791 !important;
+        border-radius: 4px !important;
+        padding: 8px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Estilo para el focus de los campos */
+    input:focus, select:focus, textarea:focus {
+        border-color: #212529;
+        box-shadow: 0 0 0 0.2rem rgba(33, 37, 41, 0.25);
+        outline: none;
+    }
+
+    /* Contenedor para mantener consistencia en el ancho */
+    .form-group {
+        margin-bottom: 1rem;
+        max-width: 50% !important;
+    }
+
+    /* Estilo para el contenedor de productos */
+    .producto-form {
+        padding: 15px;
+        margin-bottom: 15px;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        background-color: #f8f9fa;
+    }
+
+    /* Espacio entre botones */
+    .btn {
+        margin-right: 10px;
+    }
+</style>
+
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-4 text-primary">
+                <i class="zmdi zmdi-shopping-cart"></i>Registrar Compra
+            </h2>
+        </div>
+    </div>
+
+    {% if error %}
+        <div class="alert alert-danger">
+            {{ error }}
+        </div>
+    {% endif %}
+
+    <form method="POST" id="compraForm">
+        {% csrf_token %}
+        {{ detalle_formset.management_form }}
+        
+        <div class="form-group">
+            <label>Usuario:</label>
+            {{ compra_form.rut_usu }}
+        </div>
+
+        <div class="form-group">
+            <label>Proveedor:</label>
+            {{ compra_form.proveedor }}
+        </div>
+
+        <h2>Productos</h2>
+        <div id="productos">
+            {% for form in detalle_formset %}
+                <div class="producto-form">
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {{ form.non_field_errors }}
+                        </div>
+                    {% endif %}
+                    
+                    {% for field in form.visible_fields %}
+                        {% if field.name != 'DELETE' %}
+                            <div class="form-group">
+                                {{ field.label_tag }}
+                                {{ field }}
+                                {% if field.errors %}
+                                    <div class="alert alert-danger">
+                                        {{ field.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% for hidden in form.hidden_fields %}
+                        {{ hidden }}
+                    {% endfor %}
+                </div>
+            {% endfor %}
+        </div>
+
+        <button type="button" class="btn btn-success mt-3" id="agregarProducto">
+            Agregar Producto
+        </button>
+
+        <button type="submit" class="btn btn-primary mt-3">Registrar Compra</button>
+    </form>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const productosDiv = document.getElementById('productos');
+        const agregarBtn = document.getElementById('agregarProducto');
+        const totalForms = document.getElementById('id_form-TOTAL_FORMS');
+        
+        agregarBtn.addEventListener('click', function() {
+            const formCount = document.getElementsByClassName('producto-form').length;
+            const emptyForm = document.querySelector('.producto-form').cloneNode(true);
+            
+            emptyForm.querySelectorAll('input, select').forEach(function(input) {
+                input.value = '';
+                
+                let name = input.getAttribute('name');
+                let id = input.getAttribute('id');
+                
+                if (name) {
+                    name = name.replace('-0-', `-${formCount}-`);
+                    input.setAttribute('name', name);
+                }
+                if (id) {
+                    id = id.replace('-0-', `-${formCount}-`);
+                    input.setAttribute('id', id);
+                }
+            });
+
+            emptyForm.querySelectorAll('label').forEach(function(label) {
+                let forValue = label.getAttribute('for');
+                if (forValue) {
+                    forValue = forValue.replace('-0-', `-${formCount}-`);
+                    label.setAttribute('for', forValue);
+                }
+            });
+            
+            productosDiv.appendChild(emptyForm);
+            totalForms.value = formCount + 1;
+        });
+    });
+    </script>
+</div>
+{% endblock %} 

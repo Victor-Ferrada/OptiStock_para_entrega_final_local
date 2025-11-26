@@ -134,4 +134,22 @@
         </div>
     </div>
 </div>
+
+{% if messages %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        {% for message in messages %}
+            {% if message.tags == 'success' %}
+                Swal.fire({
+                    title: '¡Éxito!',
+                    text: "{{ message }}",
+                    icon: 'success',
+                    confirmButtonText: 'OK',
+                    timer: 3000
+                });
+            {% endif %}
+        {% endfor %}
+    });
+</script>
+{% endif %}
 {% endblock %}

@@ -1,6 +1,6 @@
 from django.contrib.auth import authenticate, login, logout
 from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 
 def login_view(request):
     if request.method == 'POST':
@@ -13,12 +13,10 @@ def login_view(request):
         if user is not None:
             login(request, user)
             return redirect('inventario:base')
-        error_message = 'RUT o contraseña inválidos.'
-    else:
-        error_message = ''
-    return render(request, 'usuario/login.html', {'error_message': error_message})
+        messages.error(request, 'RUT o contraseña inválidos.')
+    return render(request, 'usuario/login.html')
 
 def logout_view(request):
-    print("Cerrando sesión")
     logout(request)
+    messages.success(request, 'Has cerrado sesión correctamente.')
     return redirect('usuario:login')

@@ -18,16 +18,19 @@ def registrar_producto(request):
         form = ProductoForm(request.POST)
         if form.is_valid():
             producto = form.save(commit=False)
-            producto.umbral_stock_invierno = 10  # Valor por defecto
-            producto.umbral_stock_verano = 5     # Valor por defecto
+            producto.umbral_stock_invierno = 10
+            producto.umbral_stock_verano = 5
             producto.save()
-            messages.success(request, f'Producto "{producto.nombre}" registrado con éxito.')
+            
+            # Mensaje más simple
+            request.session['mensaje_exito'] = 'Producto creado con éxito'
+            messages.success(request, 'Producto creado con éxito')
+            
             return redirect('inventario:lista_productos')
         else:
-            print("Errores del formulario:", form.errors)
+            messages.error(request, 'Por favor, corrija los errores en el formulario.')
     else:
         form = ProductoForm()
-    
     return render(request, 'inventario/registrar_producto.html', {'form': form})
 
 
@@ -156,82 +159,75 @@ def editar_umbrales_stock(request):
     productos = Producto.objects.all()
     
     if request.method == 'POST':
+        alguno_guardado = False
         for producto in productos:
             form = UmbralStockForm(request.POST, instance=producto, prefix=str(producto.id))
             if form.is_valid():
                 form.save()
-                print(f"Formulario guardado para {producto.nombre}")
+                alguno_guardado = True
             else:
-                print(f"Errores en el formulario de {producto.nombre}: {form.errors}")
-                # Agregar el error al mensaje para mostrarlo al usuario
-                messages.error(request, f"Error al guardar el producto {producto.nombre}: {form.errors}")
+                messages.error(request, "Error al guardar los umbrales")
+                return redirect('inventario:editar-umbrales-de-stock')
         
-        messages.success(request, 'Umbrales de stock actualizados correctamente.')
+        if alguno_guardado:
+            # Usar variable de sesión
+            request.session['mostrar_mensaje'] = True
+        
         return redirect('inventario:editar-umbrales-de-stock')
+    
+    # Verificar y limpiar la variable de sesión
+    mostrar_mensaje = request.session.pop('mostrar_mensaje', False)
     
     formset = [UmbralStockForm(instance=producto, prefix=str(producto.id)) for producto in productos]
     
     return render(request, 'inventario/editar_umbrales_stock.html', {
         'formset': formset,
-        'productos': productos
+        'productos': productos,
+        'mostrar_mensaje': mostrar_mensaje
     })
 
 
 # 4. Registrar procesos adicionales (cepillado).
 def seleccionar_producto_para_cepillar(request):
-    # Obtener filtros desde la solicitud GET
+    productos = Producto.objects.filter(categoria='Madera')
     categoria = request.GET.get('categoria', '')
     nombre = request.GET.get('nombre', '')
 
-    # Filtrar productos
-    productos = Producto.objects.filter(categoria='Madera')  # Solo mostrar productos de la categoría Madera
     if categoria:
         productos = productos.filter(categoria=categoria)
     if nombre:
         productos = productos.filter(nombre__icontains=nombre)
 
-    return render(request, 'inventario/selectar_producto_para_cepillar.html', {'productos': productos})
+    # Obtener mensaje de la sesión
+    mensaje_exito = request.session.pop('mensaje_exito', None)
+    if mensaje_exito:
+        messages.success(request, mensaje_exito)
 
-from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib import messages
-from .models import Producto
-
-from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib import messages
-from .models import Producto
+    return render(request, 'inventario/selectar_producto_para_cepillar.html', {
+        'productos': productos,
+        'mensaje_exito': mensaje_exito
+    })
 
 def registrar_proceso_cepillado(request, producto_id):
     producto = get_object_or_404(Producto, id=producto_id)
     
-    if producto.categoria != 'Madera':
-        messages.error(request, 'Solo se pueden registrar procesos de cepillado en productos de la categoría Madera.')
-        return redirect('inventario:selectar_producto_para_cepillar')
-    
-    # Nueva validación para productos ya cepillados
-    if producto.cepillado:
-        messages.error(request, 'Este producto ya ha sido cepillado previamente.')
-        return redirect('inventario:selectar_producto_para_cepillar')
-    
     if request.method == 'POST':
         cantidad_cepillar = int(request.POST.get('cantidad', 0))
-        stock_original = producto.stock  # Guardamos el stock original para validación
+        stock_original = producto.stock
         
         if cantidad_cepillar <= 0:
             messages.error(request, 'La cantidad debe ser mayor a 0.')
         elif cantidad_cepillar > stock_original:
             messages.error(request, f'No hay suficiente stock. Solo hay {stock_original} disponibles.')
         else:
-            # Reducir el stock del producto original
             nuevo_stock_original = stock_original - cantidad_cepillar
             producto.stock = nuevo_stock_original
             
-            # Solo marcar como cepillado si todo el stock fue cepillado
             if nuevo_stock_original == 0:
                 producto.cepillado = True
             
             producto.save()
             
-            # Crear o actualizar el producto cepillado
             nombre_cepillado = f"{producto.nombre} CEPI"
             
             producto_cepillado, creado = Producto.objects.get_or_create(
@@ -247,30 +243,13 @@ def registrar_proceso_cepillado(request, producto_id):
                 }
             )
             
-            # Actualizar las dimensiones y precio solo si es necesario
-            if not creado:
-                if (producto_cepillado.largo != producto.largo or 
-                    producto_cepillado.ancho != producto.ancho or 
-                    producto_cepillado.alto != producto.alto or 
-                    producto_cepillado.precio != producto.precio + 3000):
-                    
-                    producto_cepillado.largo = producto.largo
-                    producto_cepillado.ancho = producto.ancho
-                    producto_cepillado.alto = producto.alto
-                    producto_cepillado.precio = producto.precio + 3000
-            
-            # Añadir el stock cepillado
             producto_cepillado.stock += cantidad_cepillar
             producto_cepillado.save()
             
-            messages.success(
-                request, 
-                f"Se han cepillado {cantidad_cepillar} unidad(es). "
-                f"Stock original restante: {nuevo_stock_original}. "
-                f"Stock producto cepillado: {producto_cepillado.stock}"
-            )
-        
-        return redirect('inventario:selectar_producto_para_cepillar')
+            request.session['mensaje_exito'] = f'Se han cepillado {cantidad_cepillar} unidades exitosamente'
+            messages.success(request, f'Se han cepillado {cantidad_cepillar} unidades exitosamente')
+            
+            return redirect('inventario:selectar_producto_para_cepillar')
     
     return render(request, 'inventario/registrar_proceso_cepillado.html', {'producto': producto})
 
@@ -280,7 +259,12 @@ def registrar_proceso_cepillado(request, producto_id):
 
 def lista_productos(request):
     productos = Producto.objects.all()
-
+    
+    # Recuperar mensaje de la sesión
+    mensaje_exito = request.session.pop('mensaje_exito', None)
+    if mensaje_exito:
+        messages.success(request, mensaje_exito)
+    
     # Filtros
     categoria = request.GET.get('categoria')
     nombre = request.GET.get('nombre')
@@ -313,4 +297,6 @@ def registrar_producto_especial(request):
     else:
         form = ProductoForm()
     return render(request, 'inventario/registrar_producto_especial.html', {'form': form})
+
+
 
