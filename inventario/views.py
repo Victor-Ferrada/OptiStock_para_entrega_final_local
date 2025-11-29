@@ -113,50 +113,96 @@ def actualizar_stock(request, producto_id):
 # 3. Generar alerta de stock.
 def generar_alerta_stock(request):
     from django.utils import timezone
-    
-    # Determinar la estación actual
+
+    # Determinar el mes actual
     mes_actual = timezone.now().month
-    
-    # Definir meses de invierno y verano (hemisferio sur)
-    meses_invierno = [6, 7, 8]  # Junio, Julio, Agosto
-    meses_verano = [12, 1, 2]   # Diciembre, Enero, Febrero
-    
-    # Productos con stock bajo según la estación
+
+    # Chile, simplificado a 2 estaciones:
+    # Verano = dic–may   (verano + otoño)
+    # Invierno = jun–nov (invierno + primavera)
+    meses_verano = [12, 1, 2, 3, 4, 5]     # Diciembre → Mayo
+    meses_invierno = [6, 7, 8, 9, 10, 11]  # Junio → Noviembre
+
+    # Estación actual como texto
+    if mes_actual in meses_verano:
+        estacion_actual = 'Verano'
+    else:
+        estacion_actual = 'Invierno'
+
     productos_bajo_stock = []
-    
+
     for producto in Producto.objects.all():
-        # Determinar el umbral actual según la estación
-        if mes_actual in meses_invierno:
-            umbral = producto.umbral_stock_invierno
-        elif mes_actual in meses_verano:
+        # Elegir el umbral correcto según la estación
+        if mes_actual in meses_verano:
             umbral = producto.umbral_stock_verano
         else:
-            # Para meses intermedios, usar un umbral intermedio
-            umbral = (producto.umbral_stock_invierno + producto.umbral_stock_verano) // 2
-        
-        # Verificar si el stock está por debajo del umbral
-        if producto.stock <= umbral:
+            umbral = producto.umbral_stock_invierno
+
+        # Si no hay umbral configurado, se ignora ese producto
+        if not umbral or umbral <= 0:
+            continue
+
+        # Porcentaje de stock respecto al umbral
+        #   ratio = 1.0  → 100% del umbral
+        #   ratio = 0.5  →  50% del umbral
+        ratio = producto.stock / umbral
+
+        # Solo mostramos productos cuyo stock está en o por debajo de 105% del umbral
+        # (pre-alerta para avisar que se está acercando).
+        if ratio <= 1.05:
+            # 4 niveles:
+            #  > 75% a 105%  → gris       (row-normal)
+            #  > 50% a 75%   → naranjo    (row-warning)
+            #  > 25% a 50%   → rojo       (row-low)
+            #  ≤ 25%         → rojo fuerte(row-critical)
+            if ratio > 0.75:
+                nivel = 'normal'
+                css_class = 'row-normal'
+            elif ratio > 0.5:
+                nivel = 'advertencia'
+                css_class = 'row-warning'
+            elif ratio > 0.25:
+                nivel = 'bajo'
+                css_class = 'row-low'
+            else:
+                nivel = 'critico'
+                css_class = 'row-critical'
+
             productos_bajo_stock.append({
                 'producto': producto,
                 'stock_actual': producto.stock,
                 'umbral': umbral,
                 'umbral_invierno': producto.umbral_stock_invierno,
-                'umbral_verano': producto.umbral_stock_verano
+                'umbral_verano': producto.umbral_stock_verano,
+                'ratio': round(ratio * 100, 1),  # porcentaje para mostrar si quieres
+                'nivel': nivel,
+                'css_class': css_class,
             })
-    
-    # Ordenar productos por stock más bajo
-    productos_bajo_stock.sort(key=lambda x: x['stock_actual'])
-    
+
+    # Ordenar por % del umbral (más crítico primero)
+    productos_bajo_stock.sort(key=lambda x: x['ratio'])
+
+
     context = {
         'productos_bajo_stock': productos_bajo_stock,
         'total_alertas': len(productos_bajo_stock),
-        'estacion_actual': 'Invierno' if mes_actual in meses_invierno else 'Verano' if mes_actual in meses_verano else 'Temporada intermedia'
+        'estacion_actual': estacion_actual,
     }
-    
+
     return render(request, 'inventario/alerta_stock.html', context)
 
+# 4. Editar umbrales de stock.
 def editar_umbrales_stock(request):
     productos = Producto.objects.all()
+    
+    # Filtros
+    categoria = request.GET.get('categoria')
+    nombre = request.GET.get('nombre')
+
+    if categoria:
+        productos = productos.filter(categoria=categoria)
+    if nombre:
+        productos = productos.filter(nombre__icontains=nombre)
     
     if request.method == 'POST':
         alguno_guardado = False

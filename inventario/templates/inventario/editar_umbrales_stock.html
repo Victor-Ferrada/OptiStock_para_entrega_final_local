@@ -1,31 +1,63 @@
 {% extends "inventario/base.html" %}
 
+{% block title %}Editar Umbrales de Stock{% endblock %}
+
 {% block content %}
+
 <style>
+    /* Estilos específicos para los campos de filtro */
+    .card-body input,
+    .card-body select {
+        border: 2px solid #495057;
+        border-radius: 4px;
+        padding: 8px;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* Estilo para el focus de los campos */
+    .card-body input:focus,
+    .card-body select:focus {
+        border-color: #212529;
+        box-shadow: 0 0 0 0.2rem rgba(33, 37, 41, 0.25);
+        outline: none;
+    }
+
+    /* Contenedor para mantener consistencia en el ancho */
+    .card-body .form-group {
+        margin-bottom: 1rem;
+        max-width: 100%;
+    }
+
     .table {
         border-collapse: collapse !important;
-        margin-bottom: 0 !important;
     }
     .table th,
     .table td {
-        border: 1px solid #0000005d !important;
-        padding: 8px !important;
+        border: 1px solid #00000036 !important;
     }
-    .table thead th {
-        background-color: #ffffff3f !important;
+
+    .table tbody tr:nth-child(odd) {
+        background-color: #ffffff;
     }
+
+    .table tbody tr:nth-child(even) {
+        background-color: #f8f9fa;
+    }
+
+    .table tbody tr:nth-child(odd) input {
+        background-color: #ffffff;
+    }
+
+    .table tbody tr:nth-child(even) input {
+        background-color: #f8f9fa;
+    }
+
     .table input {
-        width: 100%;
+        border: 1px solid #ced4da;
         padding: 6px;
-        border: 1px solid #ffffff56;
         border-radius: 4px;
-    }
-    .card {
-        border: 1px solid #dee2e6;
-        border-radius: 4px;
-    }
-    .card-body {
-        padding: 0;
     }
 </style>
 
@@ -35,52 +67,98 @@
             <h2 class="mb-4 text-primary">
                 <i class="zmdi zmdi-settings me-2"></i>Configurar Umbrales de Stock
             </h2>
-            <form method="post" class="needs-validation" novalidate>
-                {% csrf_token %}
-                <div class="card">
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Producto</th>
-                                        <th>Umbral Invierno Actual</th>
-                                        <th>Umbral Verano Actual</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for form in formset %}
-                                    <tr>
-                                        <td>{{ form.instance.nombre }}</td>
-                                        <td>
-                                            {{ form.umbral_stock_invierno }}
-                                            {% if form.umbral_stock_invierno.errors %}
-                                                <div class="invalid-feedback">
-                                                    {{ form.umbral_stock_invierno.errors }}
-                                                </div>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {{ form.umbral_stock_verano }}
-                                            {% if form.umbral_stock_verano.errors %}
-                                                <div class="invalid-feedback">
-                                                    {{ form.umbral_stock_verano.errors }}
-                                                </div>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
+        </div>
+    </div>
+
+    <!-- Divider -->
+    <div class="full-width divider-menu-h"></div>
+
+    <!-- Filtros -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">Filtros de búsqueda</h5>
+                    <form method="GET" class="row g-3">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="categoria" class="form-label">Filtrar por Categoría:</label>
+                                <select name="categoria" id="categoria" class="form-select">
+                                    <option value="" {% if not request.GET.categoria %}selected{% endif %}>Todas las categorías</option>
+                                    <option value="Madera" {% if request.GET.categoria == 'Madera' %}selected{% endif %}>Madera</option>
+                                    <option value="Planchas" {% if request.GET.categoria == 'Planchas' %}selected{% endif %}>Planchas</option>
+                                    <option value="Otros" {% if request.GET.categoria == 'Otros' %}selected{% endif %}>Otros</option>
+                                    <option value="Especial" {% if request.GET.categoria == 'Especial' %}selected{% endif %}>Especial</option>
+                                </select>
+                            </div>
                         </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="nombre" class="form-label">Buscar por Nombre:</label>
+                                <input type="text" 
+                                       name="nombre" 
+                                       id="nombre" 
+                                       class="form-control" 
+                                       placeholder="Ingrese el nombre del producto"
+                                       value="{{ request.GET.nombre }}">
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="zmdi zmdi-search me-2"></i>Aplicar Filtros
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de Umbrales -->
+    <div class="row">
+        <div class="col-12">
+            <div class="table-responsive">
+                <form method="post" class="needs-validation" novalidate>
+                    {% csrf_token %}
+                    <table class="table table-bordered table-striped">
+                        <thead class="table-light">
+                            <tr class="border">
+                                <th class="border">Producto</th>
+                                <th class="border">Umbral Invierno Actual</th>
+                                <th class="border">Umbral Verano Actual</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for form in formset %}
+                            <tr class="border">
+                                <td class="border">{{ form.instance.nombre }}</td>
+                                <td class="border">
+                                    {{ form.umbral_stock_invierno }}
+                                    {% if form.umbral_stock_invierno.errors %}
+                                        <div class="alert alert-danger">
+                                            {{ form.umbral_stock_invierno.errors }}
+                                        </div>
+                                    {% endif %}
+                                </td>
+                                <td class="border">
+                                    {{ form.umbral_stock_verano }}
+                                    {% if form.umbral_stock_verano.errors %}
+                                        <div class="alert alert-danger">
+                                            {{ form.umbral_stock_verano.errors }}
+                                        </div>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <div class="mt-3">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="zmdi zmdi-save me-2"></i>Guardar Umbrales
+                        </button>
                     </div>
-                </div>
-                <div class="mt-3">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-save me-2"></i>Guardar Umbrales
-                    </button>
-                </div>
-            </form>
+                </form>
+            </div>
         </div>
     </div>
 </div>

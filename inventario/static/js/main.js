@@ -26,21 +26,6 @@ $(document).ready(function(){
     		navOption.addClass('navBar-options-change');
     	}
     });
-    /*Salir del sistema*/
-	$('.btn-exit').on('click', function () {
-		Swal.fire({
-			title: '¿Quieres salir del sistema?',
-			text: "La sesión actual se cerrará y saldrás del sistema.",
-			icon: 'warning',
-			showCancelButton: true,
-			confirmButtonText: 'Sí, salir',
-			cancelButtonText: 'Cancelar'
-		}).then((result) => {
-			if (result.isConfirmed) {
-				window.location.href = "{% url 'usuario:logout' %}";
-			}
-		});
-	});
     /*Mostrar y ocultar submenus*/
     $('.btn-subMenu').on('click', function(){
     	var subMenu=$(this).next('ul');

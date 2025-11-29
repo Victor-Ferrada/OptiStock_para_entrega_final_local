@@ -29,6 +29,14 @@
         margin-bottom: 1rem;
         max-width: 100%;
     }
+
+    .table {
+        border-collapse: collapse !important;
+    }
+    .table th,
+    .table td {
+        border: 1px solid #00000036 !important;
+    }
 </style>
 
 <div class="container-fluid py-4">
@@ -95,33 +103,33 @@
     </div>
 
     <!-- Tabla de Productos -->
-    <div class="mdl-grid">
-        <div class="mdl-cell mdl-cell--12-col">
+    <div class="row">
+        <div class="col-12">
             <div class="table-responsive">
-                <table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp full-width">
-                    <thead>
-                        <tr>
-                            <th class="mdl-data-table__cell--non-numeric">Nombre</th>
-                            <th>Categoría</th>
-                            <th>Stock</th>
-                            <th>Precio</th>
-                            <th>Largo (m)</th>
-                            <th>Ancho (m)</th>
-                            <th>Alto (m)</th>
-                            <th>¿Cepillado?</th>
+                <table class="table table-bordered table-striped">
+                    <thead class="table-light">
+                        <tr class="border">
+                            <th class="border">Nombre</th>
+                            <th class="border">Categoría</th>
+                            <th class="border">Stock</th>
+                            <th class="border">Precio</th>
+                            <th class="border">Largo (m)</th>
+                            <th class="border">Ancho (m)</th>
+                            <th class="border">Alto (m)</th>
+                            <th class="border">¿Cepillado?</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for producto in productos %}
-                        <tr>
-                            <td class="mdl-data-table__cell--non-numeric">{{ producto.nombre }}</td>
-                            <td>{{ producto.categoria }}</td>
-                            <td>{{ producto.stock }}</td>
-                            <td>${{ producto.precio }}</td>
-                            <td>{{ producto.largo|floatformat:2 }}</td>
-                            <td>{{ producto.ancho|floatformat:2 }}</td>
-                            <td>{{ producto.alto|floatformat:2 }}</td>
-                            <td>{{ producto.cepillado|yesno:"Sí,No" }}</td>
+                        <tr class="border">
+                            <td class="border">{{ producto.nombre }}</td>
+                            <td class="border">{{ producto.categoria }}</td>
+                            <td class="border">{{ producto.stock }}</td>
+                            <td class="border">${{ producto.precio }}</td>
+                            <td class="border">{{ producto.largo|floatformat:2 }}</td>
+                            <td class="border">{{ producto.ancho|floatformat:2 }}</td>
+                            <td class="border">{{ producto.alto|floatformat:2 }}</td>
+                            <td class="border">{{ producto.cepillado|yesno:"Sí,No" }}</td>
                         </tr>
                         {% empty %}
                         <tr>

@@ -24,7 +24,7 @@
                     {% if total_alertas > 0 %}
                         <div class="alert alert-warning">
                             <i class="zmdi zmdi-alert-triangle me-2"></i>
-                            Tienes {{ total_alertas }} producto(s) con stock bajo
+                            Tienes {{ total_alertas }} producto(s) con stock bajo o en pre-alerta
                         </div>
                     {% else %}
                         <div class="alert alert-success">
@@ -51,23 +51,21 @@
                             <th class="mdl-data-table__cell--non-numeric">Categoría</th>
                             <th>Stock Actual</th>
                             <th>Umbral Actual</th>
-                            <th>Umbral Invierno</th>
-                            <th>Umbral Verano</th>
+                            <th>% del Umbral</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for item in productos_bajo_stock %}
-                        <tr {% if item.stock_actual <= 2 %}class="danger-row"{% elif item.stock_actual <= 5 %}class="warning-row"{% endif %}>
+                        <tr class="{{ item.css_class }}">
                             <td class="mdl-data-table__cell--non-numeric">{{ item.producto.nombre }}</td>
                             <td class="mdl-data-table__cell--non-numeric">{{ item.producto.categoria }}</td>
                             <td>{{ item.stock_actual }}</td>
                             <td>{{ item.umbral }}</td>
-                            <td>{{ item.umbral_invierno }}</td>
-                            <td>{{ item.umbral_verano }}</td>
+                            <td>{{ item.ratio }}%</td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="6" class="mdl-data-table__cell--non-numeric">No hay productos con stock bajo</td>
+                            <td colspan="5" class="mdl-data-table__cell--non-numeric">No hay productos con stock bajo</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -78,23 +76,52 @@
 </div>
 
 <style>
-.danger-row {
-    background-color: #ffebee !important;
+/* Gris: entre 75% y 105% del umbral */
+.row-normal {
+    background-color: #e0e0e0 !important;
 }
-.warning-row {
+
+/* Naranjo: entre 50% y 75% del umbral */
+.row-warning {
     background-color: #fff3e0 !important;
 }
+
+/* Rojo: entre 25% y 50% del umbral */
+.row-low {
+    background-color: #ffcdd2 !important;
+}
+
+/* Rojo fuerte: ≤25% del umbral */
+.row-critical {
+    background-color: #ef9a9a !important;
+    font-weight: bold;
+}
+
 .mdl-data-table {
     border: none !important;
     white-space: normal !important;
 }
+
 .mdl-data-table td {
     padding: 12px 18px !important;
 }
-.mdl-data-table th {
-    padding: 12px 18px !important;
-    background-color: #f5f5f5;
+
+/* ---------- ESTILO PARA EL ENCABEZADO (PRIMERA FILA) ---------- */
+/* Igual a tu tabla de productos */
+.mdl-data-table thead tr {
+    background-color: #f2f2f2 !important;   /* Gris claro */
 }
+
+.mdl-data-table thead th {
+    font-weight: bold !important;
+    color: #000 !important;
+    background-image: none !important;
+    border-bottom: 2px solid #ddd !important;
+    padding: 12px 18px !important;
+}
+/* -------------------------------------------------------------- */
+
+
 .alert {
     padding: 15px;
     margin-bottom: 20px;
@@ -117,4 +144,5 @@
     color: #1b5e20;
 }
 </style>
+
 {% endblock %}

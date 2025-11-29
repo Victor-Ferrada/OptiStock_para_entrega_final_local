@@ -24,21 +24,53 @@
     /* Contenedor para mantener consistencia en el ancho */
     .form-group {
         margin-bottom: 1rem;
-        max-width: 50%;
-    }
-
-    /* Estilo para el contenedor de productos */
-    .producto-form {
-        padding: 15px;
-        margin-bottom: 15px;
-        border: 1px solid #dee2e6;
-        border-radius: 4px;
-        background-color: #f8f9fa;
+        max-width: 100%;
     }
 
     /* Espacio entre botones */
     .btn {
         margin-right: 10px;
+    }
+
+    /* Estilos tabla carrito */
+    .tabla-carrito {
+        border-collapse: collapse;
+        width: 100%;
+        margin-top: 1rem;
+    }
+
+    .tabla-carrito th,
+    .tabla-carrito td {
+        border: 1px solid #dee2e6;
+        padding: 10px;
+        text-align: left;
+    }
+
+    .tabla-carrito th {
+        background-color: #f8f9fa;
+        font-weight: bold;
+    }
+
+    .tabla-carrito tbody tr:nth-child(odd) {
+        background-color: #ffffff;
+    }
+
+    .tabla-carrito tbody tr:nth-child(even) {
+        background-color: #f8f9fa;
+    }
+
+    .btn-eliminar {
+        background-color: #dc3545;
+        color: white;
+        border: none;
+        padding: 5px 10px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.9rem;
+    }
+
+    .btn-eliminar:hover {
+        background-color: #c82333;
     }
 </style>
 
@@ -46,7 +78,7 @@
     <div class="row">
         <div class="col-12">
             <h2 class="mb-4 text-primary">
-                <i class="zmdi zmdi-shopping-cart"></i></i>Registrar Venta
+                <i class="zmdi zmdi-shopping-cart"></i>Registrar Venta
             </h2>
         </div>
     </div>
@@ -57,96 +89,245 @@
         </div>
     {% endif %}
 
-    <form method="POST" id="ventaForm">
-        {% csrf_token %}
-        {{ detalle_formset.management_form }}
-        
-        <div class="form-group">
-            <label>Tipo:</label>
-            {{ mov_form.tipo }}
-        </div>
-        
-        <div class="form-group">
-            <label>Usuario:</label>
-            {{ mov_form.rut_usu }}
-        </div>
-
-        <h2>Productos</h2>
-        <div id="productos">
-            {% for form in detalle_formset %}
-                <div class="producto-form">
-                    {% if form.non_field_errors %}
-                        <div class="alert alert-danger">
-                            {{ form.non_field_errors }}
-                        </div>
-                    {% endif %}
-                    
-                    {% for field in form.visible_fields %}
-                        {% if field.name != 'DELETE' %}
-                            <div class="form-group">
-                                {{ field.label_tag }}
-                                {{ field }}
-                                {% if field.errors %}
-                                    <div class="alert alert-danger">
-                                        {{ field.errors }}
-                                    </div>
-                                {% endif %}
-                            </div>
-                        {% endif %}
-                    {% endfor %}
-                    
-                    {% for hidden in form.hidden_fields %}
-                        {{ hidden }}
-                    {% endfor %}
-                </div>
-            {% endfor %}
-        </div>
-
-        <button type="button" class="btn btn-success mt-3" id="agregarProducto">
-            Agregar Producto
-        </button>
-
-        <button type="submit" class="btn btn-primary mt-3">Registrar Venta</button>
-    </form>
-
+    {% if mostrar_mensaje %}
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
     <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const productosDiv = document.getElementById('productos');
-        const agregarBtn = document.getElementById('agregarProducto');
-        const totalForms = document.getElementById('id_form-TOTAL_FORMS');
-        
-        agregarBtn.addEventListener('click', function() {
-            const formCount = document.getElementsByClassName('producto-form').length;
-            const emptyForm = document.querySelector('.producto-form').cloneNode(true);
-            
-            emptyForm.querySelectorAll('input, select').forEach(function(input) {
-                input.value = '';
-                
-                let name = input.getAttribute('name');
-                let id = input.getAttribute('id');
-                
-                if (name) {
-                    name = name.replace('-0-', `-${formCount}-`);
-                    input.setAttribute('name', name);
-                }
-                if (id) {
-                    id = id.replace('-0-', `-${formCount}-`);
-                    input.setAttribute('id', id);
-                }
-            });
-
-            emptyForm.querySelectorAll('label').forEach(function(label) {
-                let forValue = label.getAttribute('for');
-                if (forValue) {
-                    forValue = forValue.replace('-0-', `-${formCount}-`);
-                    label.setAttribute('for', forValue);
-                }
-            });
-            
-            productosDiv.appendChild(emptyForm);
-            totalForms.value = formCount + 1;
+        // Mostrar el mensaje de éxito
+        Swal.fire({
+            title: '¡Éxito!',
+            text: 'Venta registrada con éxito',
+            icon: 'success',
+            confirmButtonText: 'OK'
         });
-    });
+
+        // Después de mostrarlo, quitar el parámetro ?ok=1 de la URL
+        if (window.location.search.includes('ok=1')) {
+            const url = new URL(window.location);
+            url.searchParams.delete('ok');    // elimina el parámetro "ok"
+            window.history.replaceState({}, '', url); // actualiza la URL sin recargar
+        }
     </script>
+    {% endif %}
+
+    <!-- Filtros de Productos -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">Filtrar Productos</h5>
+                    <form method="GET" id="filtroForm" class="row g-3">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="categoria" class="form-label">Categoría:</label>
+                                <select name="categoria" id="categoria" class="form-select">
+                                    <option value="">-- Todas las categorías --</option>
+                                    <option value="Madera" {% if categoria_seleccionada == "Madera" %}selected{% endif %}>Madera</option>
+                                    <option value="Planchas" {% if categoria_seleccionada == "Planchas" %}selected{% endif %}>Planchas</option>
+                                    <option value="Otros" {% if categoria_seleccionada == "Otros" %}selected{% endif %}>Otros</option>
+                                    <option value="Especial" {% if categoria_seleccionada == "Especial" %}selected{% endif %}>Especial</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">&nbsp;</label>
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="zmdi zmdi-search me-2"></i>Filtrar
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detalles del Producto -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">Detalles del Producto</h5>
+                    <form id="detalleForm" class="row g-3">
+                        {% csrf_token %}
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label for="producto_seleccionado" class="form-label">Producto:</label>
+                                <select id="producto_seleccionado" class="form-select">
+                                    {% if productos_filtrados %}
+                                        {% for producto in productos_filtrados %}
+                                            <option value="{{ producto.id }}" data-nombre="{{ producto.nombre }}" data-precio="{{ producto.precio }}" {% if forloop.first %}selected{% endif %}>
+                                                {{ producto.nombre }} (Stock: {{ producto.stock }})
+                                            </option>
+                                        {% endfor %}
+                                    {% else %}
+                                        <option value="">--- No hay productos disponibles ---</option>
+                                    {% endif %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label for="cantidad" class="form-label">Cantidad:</label>
+                                <input type="number" id="cantidad" class="form-control" min="1" value="1" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label class="form-label">&nbsp;</label>
+                                <button type="button" class="btn btn-success w-100" id="agregarBtn">
+                                    <i class="zmdi zmdi-plus me-2"></i>Agregar a Venta
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Carrito de Venta -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">Carrito de Venta</h5>
+                    <table class="tabla-carrito" id="carritoTable">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Cantidad</th>
+                                <th>Precio Unit.</th>
+                                <th>Subtotal</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="carritoBody">
+                        </tbody>
+                    </table>
+                    <div style="text-align: right; margin-top: 1rem;">
+                        <h4>Total: $<span id="totalCarrito">0.00</span></h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulario Oculto para Guardar -->
+    <form method="POST" id="guardarForm">
+        {% csrf_token %}
+        <input type="hidden" id="carritoJSON" name="carrito" value="">
+        <div class="row">
+            <div class="col-12">
+                <button type="button" class="btn btn-primary" id="registrarBtn">
+                    <i class="zmdi zmdi-check me-2"></i>Registrar Venta
+                </button>
+            </div>
+        </div>
+    </form>
 </div>
+
+<script>
+// Cargar carrito del localStorage al iniciar
+let carrito = JSON.parse(localStorage.getItem('carrito_venta')) || [];
+
+// Actualizar carrito al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+    actualizarCarrito();
+});
+
+document.getElementById('agregarBtn').addEventListener('click', function() {
+    const productoSelect = document.getElementById('producto_seleccionado');
+    const cantidad = parseInt(document.getElementById('cantidad').value);
+    
+    console.log('Click en agregar');
+    console.log('Valor del select:', productoSelect.value);
+    console.log('Cantidad:', cantidad);
+    console.log('Opciones disponibles:', productoSelect.options.length);
+    
+    if (!productoSelect.value || productoSelect.value === '') {
+        alert('Selecciona un producto');
+        return;
+    }
+    
+    if (cantidad <= 0) {
+        alert('La cantidad debe ser mayor a 0');
+        return;
+    }
+    
+    const option = productoSelect.options[productoSelect.selectedIndex];
+    console.log('Opción seleccionada:', option);
+    console.log('Dataset nombre:', option.dataset.nombre);
+    console.log('Dataset precio:', option.dataset.precio);
+    
+    const producto = {
+        id: productoSelect.value,
+        nombre: option.dataset.nombre,
+        cantidad: cantidad,
+        precio_uni: parseFloat(option.dataset.precio),
+        subtotal: cantidad * parseFloat(option.dataset.precio)
+    };
+    
+    console.log('Producto a agregar:', producto);
+    carrito.push(producto);
+    actualizarCarrito();
+    
+    // Limpiar formulario - resetear cantidad, dejar primer producto seleccionado
+    document.getElementById('cantidad').value = 1;
+    if (productoSelect.options.length > 0) {
+        productoSelect.selectedIndex = 0;
+    }
+});
+
+function actualizarCarrito() {
+    const carritoBody = document.getElementById('carritoBody');
+    carritoBody.innerHTML = '';
+    let total = 0;
+    
+    carrito.forEach((item, index) => {
+        const row = `
+            <tr>
+                <td>${item.nombre}</td>
+                <td>${item.cantidad}</td>
+                <td>$${item.precio_uni.toFixed(2)}</td>
+                <td>$${item.subtotal.toFixed(2)}</td>
+                <td><button type="button" class="btn-eliminar" onclick="eliminarDelCarrito(${index})">Eliminar</button></td>
+            </tr>
+        `;
+        carritoBody.innerHTML += row;
+        total += item.subtotal;
+    });
+    
+    document.getElementById('totalCarrito').textContent = total.toFixed(2);
+    document.getElementById('carritoJSON').value = JSON.stringify(carrito);
+    
+    // Guardar carrito en localStorage
+    localStorage.setItem('carrito_venta', JSON.stringify(carrito));
+    console.log('Carrito actualizado:', carrito);
+}
+
+function eliminarDelCarrito(index) {
+    carrito.splice(index, 1);
+    actualizarCarrito();
+}
+
+document.getElementById('registrarBtn').addEventListener('click', function() {
+    if (carrito.length === 0) {
+        alert('Debe agregar al menos un producto');
+        return;
+    }
+    
+    // Vaciar localStorage INMEDIATAMENTE antes de enviar el formulario
+    localStorage.removeItem('carrito_venta');
+    
+    document.getElementById('guardarForm').submit();
+});
+
+// Limpiar localStorage después de registrar la venta
+document.getElementById('guardarForm').addEventListener('submit', function() {
+    // No es necesario limpiar aquí ya que se limpió antes de submit
+});
+</script>
+
 {% endblock %}

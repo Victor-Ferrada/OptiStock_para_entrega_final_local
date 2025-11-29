@@ -4,6 +4,43 @@
 {% block title %}Lista de Ventas{% endblock %}
 
 {% block content %}
+
+<!-- Agregar estos estilos -->
+<style>
+    .table {
+        border-collapse: collapse !important;
+    }
+    .table th,
+    .table td {
+        border: 1px solid #00000036 !important;
+    }
+
+    /* Estilos específicos para los campos de filtro */
+    .card-body input,
+    .card-body select {
+        border: 2px solid #495057;
+        border-radius: 4px;
+        padding: 8px;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* Estilo para el focus de los campos */
+    .card-body input:focus,
+    .card-body select:focus {
+        border-color: #212529;
+        box-shadow: 0 0 0 0.2rem rgba(33, 37, 41, 0.25);
+        outline: none;
+    }
+
+    /* Contenedor para mantener consistencia en el ancho */
+    .card-body .form-group {
+        margin-bottom: 1rem;
+        max-width: 100%;
+    }
+</style>
+
 <div class="container-fluid py-4">
     <div class="row">
         <div class="col-12">
@@ -13,37 +50,79 @@
         </div>
     </div>
 
-    <!-- Divider -->
-    <div class="full-width divider-menu-h"></div>
+    <!-- Filtros -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">Filtrar por Mes y Año</h5>
+                    <form method="GET" class="row g-3">
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label for="mes" class="form-label">Mes:</label>
+                                <select name="mes" id="mes" class="form-select">
+                                    {% for valor_mes, nombre_mes in meses %}
+                                        <option value="{{ valor_mes }}" {% if valor_mes == mes_seleccionado or valor_mes|stringformat:"s" == mes_seleccionado|stringformat:"s" %}selected{% endif %}>
+                                            {{ nombre_mes }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label for="año" class="form-label">Año:</label>
+                                <select name="año" id="año" class="form-select">
+                                    {% for year in años_disponibles %}
+                                        <option value="{{ year }}" {% if year == año_seleccionado %}selected{% endif %}>
+                                            {{ year }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label class="form-label">&nbsp;</label>
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="zmdi zmdi-search me-2"></i>Filtrar
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Tabla de Ventas -->
-    <div class="mdl-grid">
-        <div class="mdl-cell mdl-cell--12-col">
+    <div class="row">
+        <div class="col-12">
             <div class="table-responsive">
-                <table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp full-width">
-                    <thead>
-                        <tr>
-                            <th class="mdl-data-table__cell--non-numeric">ID</th>
-                            <th>Fecha</th>
-                            <th>Total</th>
-                            <th>Acciones</th>
+                <table class="table table-bordered table-striped">
+                    <thead class="table-light">
+                        <tr class="border">
+                            <th class="border">ID</th>
+                            <th class="border">Fecha</th>
+                            <th class="border">Total</th>
+                            <th class="border">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for venta in ventas %}
-                        <tr>
-                            <td class="mdl-data-table__cell--non-numeric">{{ venta.id_mov }}</td>
-                            <td>{{ venta.fecha }}</td>
-                            <td>${{ venta.total|floatformat:2 }}</td>
-                            <td>
-                                <a href="{% url 'ventas:detalle_venta' venta.id_mov %}" class="mdl-button mdl-button--icon mdl-js-button mdl-js-ripple-effect">
-                                    <i class="zmdi zmdi-eye"></i>
+                        <tr class="border">
+                            <td class="border">{{ venta.id_mov }}</td>
+                            <td class="border">{{ venta.fecha }}</td>
+                            <td class="border">${{ venta.total|floatformat:2 }}</td>
+                            <td class="border">
+                                <a href="{% url 'ventas:detalle_venta' venta.id_mov %}" class="btn btn-success">
+                                    <i class="zmdi zmdi-eye me-1"></i>Detalles
                                 </a>
                             </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="5" class="text-center">No hay ventas registradas</td>
+                            <td colspan="4" class="text-center">No hay ventas registradas</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -51,7 +130,7 @@
             </div>
         </div>
     </div>
-</section>
+</div>
 
 {% if mostrar_mensaje %}
 <script>

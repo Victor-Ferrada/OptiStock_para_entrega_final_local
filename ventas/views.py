@@ -1,20 +1,71 @@
+import json
+from urllib.parse import urlencode
+
+
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.db import transaction
 from django.forms import modelformset_factory
 from django.core.exceptions import ValidationError
+from django.contrib import messages
+from django.db.models import Q
+
 from .forms import MovimientoForm, DetalleForm
 from .models import Movimiento, Detalle
 from inventario.models import Producto
 from logger.models import SystemMessage
-from django.contrib import messages
+from datetime import datetime
+
+
 
 def lista_ventas(request):
-    ventas = Movimiento.objects.filter(tipo='VENTA')
+    # Obtener mes y año actuales por defecto
+    today = datetime.now()
+    mes = request.GET.get('mes', str(today.month))
+    año = int(request.GET.get('año', today.year))
+    
+    # Filtrar ventas por mes y año
+    if mes == 'todos':
+        # Mostrar todos los meses del año
+        ventas = Movimiento.objects.filter(
+            tipo='VENTA',
+            fecha__year=año
+        ).order_by('-fecha')
+    else:
+        # Mostrar solo el mes especificado
+        mes = int(mes)
+        ventas = Movimiento.objects.filter(
+            tipo='VENTA',
+            fecha__month=mes,
+            fecha__year=año
+        ).order_by('-fecha')
+    
     mostrar_mensaje = request.session.pop('mostrar_mensaje', False)
+    
+    # Generar opciones de meses y años
+    meses = [
+        ('todos', 'Todos los meses'),
+        (1, 'Enero'), (2, 'Febrero'), (3, 'Marzo'), (4, 'Abril'),
+        (5, 'Mayo'), (6, 'Junio'), (7, 'Julio'), (8, 'Agosto'),
+        (9, 'Septiembre'), (10, 'Octubre'), (11, 'Noviembre'), (12, 'Diciembre')
+    ]
+    
+    # Obtener años disponibles en la base de datos
+    años_disponibles = set()
+    for venta in Movimiento.objects.filter(tipo='VENTA').values_list('fecha__year', flat=True).distinct():
+        años_disponibles.add(venta)
+    años_disponibles = sorted(list(años_disponibles), reverse=True)
+    # Si no hay años, agregar el año actual
+    if not años_disponibles:
+        años_disponibles = [today.year]
     
     return render(request, 'ventas/lista_ventas.html', {
         'ventas': ventas,
-        'mostrar_mensaje': mostrar_mensaje
+        'mostrar_mensaje': mostrar_mensaje,
+        'mes_seleccionado': mes,
+        'año_seleccionado': año,
+        'meses': meses,
+        'años_disponibles': años_disponibles
     })
 
 def detalle_venta(request, id_mov):
@@ -32,87 +83,105 @@ def detalle_venta(request, id_mov):
     })
 
 def registrar_venta(request):
-    DetalleFormSet = modelformset_factory(
-        Detalle, 
-        form=DetalleForm, 
-        extra=1, 
-        can_delete=False
-    )
+    # Obtener filtro de categoría desde la URL (?categoria=...)
+    categoria = request.GET.get('categoria', '')
+
+    # Filtrar productos
+    if categoria:
+        productos_queryset = Producto.objects.filter(categoria=categoria).order_by('nombre')
+    else:
+        productos_queryset = Producto.objects.all().order_by('nombre')
+
+    # Si viene ?ok=1 en la URL, mostramos el mensaje de éxito
+    mostrar_mensaje = request.GET.get('ok') == '1'
+    error = None
 
     if request.method == "POST":
-        mov_form = MovimientoForm(request.POST)
-        detalle_formset = DetalleFormSet(request.POST, queryset=Detalle.objects.none())
+        try:
+            carrito = json.loads(request.POST.get('carrito', '[]'))
 
-        if mov_form.is_valid() and detalle_formset.is_valid():
-            try:
-                with transaction.atomic():
-                    movimiento = mov_form.save(commit=False)
-                    total = 0
-                    detalles = []
+            if not carrito:
+                error = 'El carrito está vacío'
+                raise ValidationError(error)
 
-                    if not any(form.cleaned_data for form in detalle_formset):
-                        error_msg = "Debe agregar al menos un producto a la venta."
-                        SystemMessage.objects.create(
-                            message=error_msg,
-                            level='error',
-                            app='ventas',
-                            user=request.user
-                        )
-                        raise ValidationError(error_msg)
+            with transaction.atomic():
+                movimiento = Movimiento()
+                movimiento.tipo = 'VENTA'
+                movimiento.rut_usu = request.user
+                total = 0
+                detalles = []
 
-                    for detalle_form in detalle_formset:
-                        if detalle_form.cleaned_data:
-                            detalle = detalle_form.save(commit=False)
-                            producto = detalle.id_prod
-                            cantidad = detalle.cantidad
+                for item in carrito:
+                    try:
+                        producto = Producto.objects.get(id=item['id'])
+                        cantidad = item['cantidad']
+                        precio_unitario = item['precio_uni']
 
-                            if producto.stock < cantidad:
-                                error_msg = f"Stock insuficiente para {producto.nombre}. Stock disponible: {producto.stock}, requerido: {cantidad}."
-                                SystemMessage.objects.create(
-                                    message=error_msg,
-                                    level='error',
-                                    app='ventas',
-                                    user=request.user
-                                )
-                                raise ValidationError(error_msg)
-
-                            detalle.precio_uni = producto.precio
-                            subtotal = producto.precio * cantidad
-                            total += subtotal
-
-                            producto.stock -= cantidad
-                            producto.save()
-
+                        if producto.stock < cantidad:
+                            error_msg = (
+                                f"Stock insuficiente para {producto.nombre}. "
+                                f"Stock disponible: {producto.stock}, requerido: {cantidad}."
+                            )
                             SystemMessage.objects.create(
-                                message=f"Stock actualizado para {producto.nombre}. Nuevo stock: {producto.stock}",
-                                level='info',
+                                message=error_msg,
+                                level='error',
                                 app='ventas',
                                 user=request.user
                             )
+                            raise ValidationError(error_msg)
 
-                            detalle.id_mov = movimiento
-                            detalles.append(detalle)
+                        subtotal = precio_unitario * cantidad
+                        total += subtotal
 
-                    movimiento.total = total
-                    movimiento.save()
-                    Detalle.objects.bulk_create(detalles)
+                        producto.stock -= cantidad
+                        producto.save()
 
-                    request.session['mostrar_mensaje'] = True
-                    
-                    return redirect('ventas:lista_ventas')
+                        SystemMessage.objects.create(
+                            message=f"Stock actualizado para {producto.nombre}. Nuevo stock: {producto.stock}",
+                            level='info',
+                            app='ventas',
+                            user=request.user
+                        )
 
-            except ValidationError as e:
-                error = str(e)
-                return render(request, 'ventas/registrar_venta.html', {
-                    'mov_form': mov_form,
-                    'detalle_formset': detalle_formset,
-                    'error': error
-                })
-    else:
-        mov_form = MovimientoForm()
-        detalle_formset = DetalleFormSet(queryset=Detalle.objects.none())
+                        detalle = Detalle(
+                            id_mov=movimiento,
+                            id_prod=producto,
+                            cantidad=cantidad,
+                            precio_uni=precio_unitario
+                        )
+                        detalles.append(detalle)
+
+                    except Producto.DoesNotExist:
+                        raise ValidationError(f"Producto con ID {item['id']} no encontrado")
+
+                movimiento.total = total
+                movimiento.save()
+                Detalle.objects.bulk_create(detalles)
+
+                SystemMessage.objects.create(
+                    message=f"Venta registrada exitosamente. Total: ${total:.2f}",
+                    level='info',
+                    app='ventas',
+                    user=request.user
+                )
+
+            # 🔴 PRG: redirigir después de un POST exitoso, SIN usar reverse
+            params = {'ok': '1'}
+            if categoria:
+                params['categoria'] = categoria
+
+            url = request.path  # /ventas/registrar/
+            url_con_params = f"{url}?{urlencode(params)}"
+
+            return redirect(url_con_params)
+
+        except (json.JSONDecodeError, ValidationError) as e:
+            # Si hay error, NO redirigimos, solo mostramos el error en el mismo render
+            error = str(e) if isinstance(e, ValidationError) else 'Error en los datos del carrito'
 
     return render(request, 'ventas/registrar_venta.html', {
-        'mov_form': mov_form,
-        'detalle_formset': detalle_formset,
+        'mostrar_mensaje': mostrar_mensaje,
+        'categoria_seleccionada': categoria,
+        'productos_filtrados': productos_queryset,
+        'error': error
     })

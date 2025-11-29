@@ -6,12 +6,12 @@
 <style>
     /* Estilo para todos los campos del formulario */
     input, select, textarea {
-        border: 2px solid #49505791 !important;
-        border-radius: 4px !important;
-        padding: 8px !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        box-sizing: border-box !important;
+        border: 2px solid #49505791;
+        border-radius: 4px;
+        padding: 8px;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
     }
 
     /* Estilo para el focus de los campos */
@@ -24,21 +24,53 @@
     /* Contenedor para mantener consistencia en el ancho */
     .form-group {
         margin-bottom: 1rem;
-        max-width: 50% !important;
-    }
-
-    /* Estilo para el contenedor de productos */
-    .producto-form {
-        padding: 15px;
-        margin-bottom: 15px;
-        border: 1px solid #dee2e6;
-        border-radius: 4px;
-        background-color: #f8f9fa;
+        max-width: 100%;
     }
 
     /* Espacio entre botones */
     .btn {
         margin-right: 10px;
+    }
+
+    /* Estilos tabla carrito */
+    .tabla-carrito {
+        border-collapse: collapse;
+        width: 100%;
+        margin-top: 1rem;
+    }
+
+    .tabla-carrito th,
+    .tabla-carrito td {
+        border: 1px solid #dee2e6;
+        padding: 10px;
+        text-align: left;
+    }
+
+    .tabla-carrito th {
+        background-color: #f8f9fa;
+        font-weight: bold;
+    }
+
+    .tabla-carrito tbody tr:nth-child(odd) {
+        background-color: #ffffff;
+    }
+
+    .tabla-carrito tbody tr:nth-child(even) {
+        background-color: #f8f9fa;
+    }
+
+    .btn-eliminar {
+        background-color: #dc3545;
+        color: white;
+        border: none;
+        padding: 5px 10px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.9rem;
+    }
+
+    .btn-eliminar:hover {
+        background-color: #c82333;
     }
 </style>
 
@@ -57,96 +89,293 @@
         </div>
     {% endif %}
 
-    <form method="POST" id="compraForm">
-        {% csrf_token %}
-        {{ detalle_formset.management_form }}
-        
-        <div class="form-group">
-            <label>Usuario:</label>
-            {{ compra_form.rut_usu }}
-        </div>
-
-        <div class="form-group">
-            <label>Proveedor:</label>
-            {{ compra_form.proveedor }}
-        </div>
-
-        <h2>Productos</h2>
-        <div id="productos">
-            {% for form in detalle_formset %}
-                <div class="producto-form">
-                    {% if form.non_field_errors %}
-                        <div class="alert alert-danger">
-                            {{ form.non_field_errors }}
-                        </div>
-                    {% endif %}
-                    
-                    {% for field in form.visible_fields %}
-                        {% if field.name != 'DELETE' %}
-                            <div class="form-group">
-                                {{ field.label_tag }}
-                                {{ field }}
-                                {% if field.errors %}
-                                    <div class="alert alert-danger">
-                                        {{ field.errors }}
-                                    </div>
-                                {% endif %}
-                            </div>
-                        {% endif %}
-                    {% endfor %}
-                    
-                    {% for hidden in form.hidden_fields %}
-                        {{ hidden }}
-                    {% endfor %}
-                </div>
-            {% endfor %}
-        </div>
-
-        <button type="button" class="btn btn-success mt-3" id="agregarProducto">
-            Agregar Producto
-        </button>
-
-        <button type="submit" class="btn btn-primary mt-3">Registrar Compra</button>
-    </form>
-
+    {% if mostrar_mensaje %}
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
     <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const productosDiv = document.getElementById('productos');
-        const agregarBtn = document.getElementById('agregarProducto');
-        const totalForms = document.getElementById('id_form-TOTAL_FORMS');
-        
-        agregarBtn.addEventListener('click', function() {
-            const formCount = document.getElementsByClassName('producto-form').length;
-            const emptyForm = document.querySelector('.producto-form').cloneNode(true);
-            
-            emptyForm.querySelectorAll('input, select').forEach(function(input) {
-                input.value = '';
-                
-                let name = input.getAttribute('name');
-                let id = input.getAttribute('id');
-                
-                if (name) {
-                    name = name.replace('-0-', `-${formCount}-`);
-                    input.setAttribute('name', name);
-                }
-                if (id) {
-                    id = id.replace('-0-', `-${formCount}-`);
-                    input.setAttribute('id', id);
-                }
-            });
-
-            emptyForm.querySelectorAll('label').forEach(function(label) {
-                let forValue = label.getAttribute('for');
-                if (forValue) {
-                    forValue = forValue.replace('-0-', `-${formCount}-`);
-                    label.setAttribute('for', forValue);
-                }
-            });
-            
-            productosDiv.appendChild(emptyForm);
-            totalForms.value = formCount + 1;
+        // Mostrar mensaje de éxito
+        Swal.fire({
+            title: '¡Éxito!',
+            text: 'Compra registrada con éxito',
+            icon: 'success',
+            confirmButtonText: 'OK'
         });
-    });
+
+        // Quitar ?ok=1 de la URL para que al recargar no vuelva a salir
+        if (window.location.search.includes('ok=1')) {
+            const url = new URL(window.location);
+            url.searchParams.delete('ok');
+            window.history.replaceState({}, '', url);
+        }
     </script>
+    {% endif %}
+
+    <!-- Datos del Proveedor -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">Datos del Proveedor</h5>
+                    <form method="POST" id="guardarForm">
+                        {% csrf_token %}
+                        <input type="hidden" id="carritoJSON" name="carrito" value="">
+                        <div class="row g-3">
+                            {% if compra_form %}
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        {{ compra_form.proveedor.label_tag }}
+                                        {{ compra_form.proveedor }}
+                                        {% if compra_form.proveedor.errors %}
+                                            <div class="alert alert-danger mt-2">
+                                                {{ compra_form.proveedor.errors }}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros de Productos -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">Filtrar Productos</h5>
+                    <form method="GET" id="filtroForm" class="row g-3">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="categoria" class="form-label">Categoría:</label>
+                                <select name="categoria" id="categoria" class="form-select">
+                                    <option value="">-- Todas las categorías --</option>
+                                    <option value="Madera" {% if categoria_seleccionada == "Madera" %}selected{% endif %}>Madera</option>
+                                    <option value="Planchas" {% if categoria_seleccionada == "Planchas" %}selected{% endif %}>Planchas</option>
+                                    <option value="Otros" {% if categoria_seleccionada == "Otros" %}selected{% endif %}>Otros</option>
+                                    <option value="Especial" {% if categoria_seleccionada == "Especial" %}selected{% endif %}>Especial</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">&nbsp;</label>
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="zmdi zmdi-search me-2"></i>Filtrar
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detalles del Producto -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">Detalles del Producto</h5>
+                    <form id="detalleForm" class="row g-3">
+                        {% csrf_token %}
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label for="producto_seleccionado" class="form-label">Producto:</label>
+                                <select id="producto_seleccionado" class="form-select">
+                                    {% if productos_filtrados %}
+                                        {% for producto in productos_filtrados %}
+                                            <option value="{{ producto.id }}" data-nombre="{{ producto.nombre }}" data-precio="{{ producto.precio }}" {% if forloop.first %}selected{% endif %}>
+                                                {{ producto.nombre }} (Stock: {{ producto.stock }})
+                                            </option>
+                                        {% endfor %}
+                                    {% else %}
+                                        <option value="">--- No hay productos disponibles ---</option>
+                                    {% endif %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label for="cantidad" class="form-label">Cantidad:</label>
+                                <input type="number" id="cantidad" class="form-control" min="1" value="1" required>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label for="precio_uni" class="form-label">Precio Unit.:</label>
+                                <input type="number" id="precio_uni" class="form-control" min="0" step="0.01" value="0" required>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label class="form-label">&nbsp;</label>
+                                <button type="button" class="btn btn-success w-100" id="agregarBtn">
+                                    <i class="zmdi zmdi-plus me-2"></i>Agregar a Compra
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Carrito de Compra -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">Carrito de Compra</h5>
+                    <table class="tabla-carrito" id="carritoTable">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Cantidad</th>
+                                <th>Precio Unit.</th>
+                                <th>Subtotal</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="carritoBody">
+                        </tbody>
+                    </table>
+                    <div style="text-align: right; margin-top: 1rem;">
+                        <h4>Total: $<span id="totalCarrito">0.00</span></h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Botón Registrar Compra -->
+    <div class="row">
+        <div class="col-12">
+            <button type="button" class="btn btn-primary" id="registrarBtn">
+                <i class="zmdi zmdi-check me-2"></i>Registrar Compra
+            </button>
+        </div>
+    </div>
 </div>
-{% endblock %} 
+
+<script>
+// Cargar carrito de compras desde localStorage al iniciar
+let carrito = JSON.parse(localStorage.getItem('carrito_compra')) || [];
+
+// Al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+    // 1) Restaurar carrito en la tabla y el total
+    actualizarCarrito();
+
+    // 2) Restaurar y persistir proveedor
+    const proveedorField = document.querySelector('[name="proveedor"]');
+    if (proveedorField) {
+        // Restaurar valor guardado
+        const proveedorGuardado = localStorage.getItem('proveedor_compra') || '';
+        proveedorField.value = proveedorGuardado;
+
+        // Guardar automáticamente cuando cambie
+        const guardarProveedor = () => {
+            localStorage.setItem('proveedor_compra', proveedorField.value.trim());
+        };
+        proveedorField.addEventListener('input', guardarProveedor);
+        proveedorField.addEventListener('change', guardarProveedor);
+    }
+});
+
+document.getElementById('agregarBtn').addEventListener('click', function() {
+    const productoSelect = document.getElementById('producto_seleccionado');
+    const cantidad = parseInt(document.getElementById('cantidad').value);
+    const precio_uni = parseFloat(document.getElementById('precio_uni').value);
+
+    if (!productoSelect.value || productoSelect.value === '') {
+        alert('Selecciona un producto');
+        return;
+    }
+
+    if (cantidad <= 0) {
+        alert('La cantidad debe ser mayor a 0');
+        return;
+    }
+
+    if (precio_uni <= 0) {
+        alert('El precio debe ser mayor a 0');
+        return;
+    }
+
+    const option = productoSelect.options[productoSelect.selectedIndex];
+    const producto = {
+        id: productoSelect.value,
+        nombre: option.dataset.nombre,
+        cantidad: cantidad,
+        precio_uni: precio_uni,
+        subtotal: cantidad * precio_uni
+    };
+
+    carrito.push(producto);
+    actualizarCarrito();
+
+    // Resetear formulario
+    document.getElementById('cantidad').value = 1;
+    document.getElementById('precio_uni').value = 0;
+    productoSelect.selectedIndex = 0;
+});
+
+function actualizarCarrito() {
+    const carritoBody = document.getElementById('carritoBody');
+    carritoBody.innerHTML = '';
+    let total = 0;
+
+    carrito.forEach((item, index) => {
+        carritoBody.innerHTML += `
+            <tr>
+                <td>${item.nombre}</td>
+                <td>${item.cantidad}</td>
+                <td>$${item.precio_uni.toFixed(2)}</td>
+                <td>$${item.subtotal.toFixed(2)}</td>
+                <td><button type="button" class="btn-eliminar" onclick="eliminarDelCarrito(${index})">Eliminar</button></td>
+            </tr>
+        `;
+        total += item.subtotal;
+    });
+
+    document.getElementById('totalCarrito').textContent = total.toFixed(2);
+    document.getElementById('carritoJSON').value = JSON.stringify(carrito);
+
+    // Guardar carrito en localStorage
+    localStorage.setItem('carrito_compra', JSON.stringify(carrito));
+}
+
+function eliminarDelCarrito(index) {
+    carrito.splice(index, 1);
+    actualizarCarrito();
+}
+
+document.getElementById('registrarBtn').addEventListener('click', function() {
+    const proveedorField = document.querySelector('[name="proveedor"]');
+    const proveedor = proveedorField ? proveedorField.value.trim() : '';
+
+    if (!proveedor) {
+        alert('Debe seleccionar un proveedor');
+        return;
+    }
+
+    if (carrito.length === 0) {
+        alert('Debe agregar al menos un producto');
+        return;
+    }
+
+    // Aseguramos que el proveedor se guarde ANTES de enviar
+    localStorage.setItem('proveedor_compra', proveedor);
+
+    // Limpiamos localStorage como en ventas
+    localStorage.removeItem('carrito_compra');
+    localStorage.removeItem('proveedor_compra'); // 👈 Se borra como pediste
+
+    document.getElementById('guardarForm').submit();
+});
+</script>
+
+
+{% endblock %}
