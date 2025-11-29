@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.shortcuts import redirect
 from django.contrib.auth.decorators import login_required
+from django.http import HttpResponse
 
 def pagina_inicio(request):
     if request.user.is_authenticated:
@@ -17,4 +18,5 @@ urlpatterns = [
     path('compras/', include('compras.urls', namespace='compras')),
     path('logger/', include('logger.urls')),
     path('reportes/', include('reportes.urls')),
+    path('favicon.ico', lambda request: HttpResponse(status=204)), #sin favicom
 ]
