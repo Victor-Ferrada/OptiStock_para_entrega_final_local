@@ -15,14 +15,20 @@ def base_view(request):
 # 1. Registrar un producto
 def registrar_producto(request):
     if request.method == 'POST':
-        form = ProductoForm(request.POST)
+        # Copiamos los datos del POST y seteamos stock = 0
+        data = request.POST.copy()
+        data['stock'] = 0
+
+        form = ProductoForm(data)
         if form.is_valid():
             producto = form.save(commit=False)
-            producto.umbral_stock_invierno = 10
-            producto.umbral_stock_verano = 5
+            # Stock siempre 0 al crear desde este menú
+            producto.stock = 0
+            # Umbrales por defecto
+            producto.umbral_stock_invierno = 0
+            producto.umbral_stock_verano = 0
             producto.save()
             
-            # Mensaje más simple
             request.session['mensaje_exito'] = 'Producto creado con éxito'
             messages.success(request, 'Producto creado con éxito')
             
